@@ -12,9 +12,9 @@ A high-performance, interactive dashboard for visualizing street-level crime dat
 - **Outcome Status**: View the police outcome for specific crime incidents where available.
 
 ## 📸 Walkthrough GIF
-*(Insert Walkthrough GIF here)*
 
----
+![ezgif-8dffc08cdb266d06](https://github.com/user-attachments/assets/e5d84322-38ce-4333-88ef-2ee4a176f0e7)
+
 
 ## 🛠 Technical Implementation
 
