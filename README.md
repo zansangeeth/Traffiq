@@ -70,6 +70,3 @@ const fetchAreaCrimes = async (polyPoints, date) => {
    ```bash
    npm run dev
    ```
-
-## 📜 License
-This project is for educational purposes using public data provided by UK Police Force and British Transport Police.
