@@ -1,0 +1,250 @@
+import { useState } from 'react'
+import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents, Polygon } from 'react-leaflet'
+import axios from 'axios'
+import 'leaflet/dist/leaflet.css'
+import './index.css'
+import { Plus, Trash2, MousePointer2 } from 'lucide-react'
+
+function App() {
+    const [crimeData, setCrimeData] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [searchMode, setSearchMode] = useState('point') // 'point' | 'area'
+    const [polyPoints, setPolyPoints] = useState([])
+    const [selectedPoint, setSelectedPoint] = useState(null)
+    const [date, setDate] = useState('2024-01')
+
+    const fetchCrimeData = async (lat, lng, poly = null) => {
+        try {
+            setLoading(true)
+            let url = `https://data.police.uk/api/crimes-street/all-crime?date=${date}`
+
+            if (poly) {
+                const polyString = poly.map(p => `${p[0]},${p[1]}`).join(':')
+                url += `&poly=${polyString}`
+            } else {
+                url += `&lat=${lat}&lng=${lng}`
+            }
+
+            const response = await axios.get(url)
+            const data = response.data || []
+            console.log(`✅ Loaded ${data.length} crime records`)
+            setCrimeData(data)
+        } catch (error) {
+            console.error('❌ Error fetching UK crime data:', error)
+            if (error.response?.status === 503) {
+                alert('Area contains too many crimes (>10,000). Please try a smaller area.')
+            }
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const clearAll = () => {
+        setCrimeData([])
+        setPolyPoints([])
+        setSelectedPoint(null)
+    }
+
+    function MapEvents() {
+        useMapEvents({
+            click(e) {
+                const { lat, lng } = e.latlng
+                if (searchMode === 'point') {
+                    setSelectedPoint([lat, lng])
+                    setPolyPoints([])
+                    fetchCrimeData(lat, lng)
+                } else if (searchMode === 'area') {
+                    setPolyPoints(prev => [...prev, [lat, lng]])
+                    setSelectedPoint(null)
+                }
+            },
+        })
+        return null
+    }
+
+    const getCrimeColor = (category) => {
+        const colors = {
+            'anti-social-behaviour': '#ec4899', // Pink
+            'bicycle-theft': '#f59e0b',        // Amber
+            'burglary': '#7c3aed',             // Violet
+            'criminal-damage-arson': '#dc2626', // Red
+            'drugs': '#059669',                // Emerald
+            'other-theft': '#6366f1',           // Indigo
+            'possession-of-weapons': '#b91c1c', // Dark Red
+            'public-order': '#ea580c',          // Orange
+            'robbery': '#9f1239',               // Rose
+            'shoplifting': '#2563eb',           // Blue
+            'theft-from-the-person': '#4f46e5', // Indigo
+            'vehicle-crime': '#0891b2',         // Cyan
+            'violent-crime': '#7f1d1d',         // Maroon
+            'other-crime': '#52525b'            // Zinc
+        }
+        return colors[category] || '#71717a'
+    }
+
+    return (
+        <div className="h-screen w-screen bg-zinc-950 text-white overflow-hidden font-sans">
+            {/* Header */}
+            <header className="absolute top-0 left-0 right-0 z-[1000] p-6 flex items-center justify-between pointer-events-none">
+                <div className="flex items-center gap-4">
+                    <div className="glass px-6 py-3 rounded-2xl pointer-events-auto shadow-2xl border border-white/10">
+                        <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-red-400 to-rose-600 bg-clip-text text-transparent">
+                            UK Crime Watch
+                        </h1>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    {/* Controls */}
+                    <div className="glass flex p-1 rounded-xl pointer-events-auto shadow-2xl border border-white/10">
+                        <button
+                            onClick={() => {
+                                setSearchMode('point')
+                                clearAll()
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${searchMode === 'point' ? 'bg-red-500 text-white shadow-lg' : 'text-zinc-400 hover:text-white'}`}
+                        >
+                            <MousePointer2 size={16} />
+                            Point
+                        </button>
+                        <button
+                            onClick={() => {
+                                setSearchMode('area')
+                                clearAll()
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${searchMode === 'area' ? 'bg-red-500 text-white shadow-lg' : 'text-zinc-400 hover:text-white'}`}
+                        >
+                            <Plus size={16} />
+                            Area
+                        </button>
+                    </div>
+
+                    {searchMode === 'area' && polyPoints.length >= 3 && (
+                        <button
+                            onClick={() => fetchCrimeData(null, null, polyPoints)}
+                            className="glass px-4 py-2 rounded-xl pointer-events-auto bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 text-sm font-bold shadow-2xl transition-all hover:bg-emerald-600 hover:text-white"
+                        >
+                            Search Area
+                        </button>
+                    )}
+
+                    {(selectedPoint || polyPoints.length > 0 || crimeData.length > 0) && (
+                        <button
+                            onClick={clearAll}
+                            className="glass p-2 rounded-xl pointer-events-auto bg-zinc-800/50 text-zinc-400 border border-white/10 hover:text-red-400 transition-all shadow-2xl"
+                            title="Clear all results"
+                        >
+                            <Trash2 size={20} />
+                        </button>
+                    )}
+
+                    <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold glass shadow-2xl min-w-[150px] justify-center ${loading ? 'border-red-500/20 text-red-400' : 'border-emerald-500/20 text-emerald-400'}`}>
+                        <div className={`w-2 h-2 rounded-full ${loading ? 'bg-red-500' : 'bg-emerald-500'} ${loading ? 'animate-ping' : ''}`} />
+                        {loading ? 'Searching...' : `${crimeData.length} Crimes Found`}
+                    </div>
+                </div>
+            </header>
+
+            {/* Map */}
+            <MapContainer
+                center={[52.63, -1.13]}
+                zoom={13}
+                className="h-full w-full"
+                zoomControl={false}
+            >
+                <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                />
+                <MapEvents />
+
+                {selectedPoint && (
+                    <CircleMarker center={selectedPoint} radius={10} fillColor="#ef4444" color="#fff" weight={2} opacity={1} fillOpacity={0.4}>
+                        <Popup>Selection Center</Popup>
+                    </CircleMarker>
+                )}
+
+                {polyPoints.length > 0 && (
+                    <Polygon
+                        positions={polyPoints}
+                        pathOptions={{ color: '#ef4444', weight: 2, fillOpacity: 0.2, dashArray: '5, 10' }}
+                    />
+                )}
+
+                {crimeData.map((crime, index) => (
+                    <CircleMarker
+                        key={`crime-${index}`}
+                        center={[parseFloat(crime.location.latitude), parseFloat(crime.location.longitude)]}
+                        radius={6}
+                        fillColor={getCrimeColor(crime.category)}
+                        color="#fff"
+                        weight={1}
+                        opacity={0.8}
+                        fillOpacity={0.6}
+                    >
+                        <Popup>
+                            <div className="text-sm max-w-[200px]">
+                                <div className="font-bold text-zinc-900 capitalize">
+                                    {crime.category.replace(/-/g, ' ')}
+                                </div>
+                                <div className="text-zinc-600 text-xs mt-1">
+                                    <div className="font-medium text-zinc-800">{crime.location.street.name}</div>
+                                    <div className="mt-1">Month: {crime.month}</div>
+                                    {crime.outcome_status && (
+                                        <div className="mt-1 p-1.5 bg-zinc-100 rounded border border-zinc-200 text-[10px]">
+                                            <span className="font-bold">Outcome:</span> {crime.outcome_status.category}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </Popup>
+                    </CircleMarker>
+                ))}
+            </MapContainer>
+
+            {/* Legend */}
+            <div className="absolute bottom-6 left-6 z-[1000] glass p-4 rounded-2xl pointer-events-auto max-h-[400px] overflow-y-auto custom-scrollbar border border-white/10 shadow-2xl w-64">
+                <div className="text-xs font-bold mb-3 text-zinc-400 uppercase tracking-widest">Dashboard</div>
+
+                <div className="mb-4">
+                    <label className="text-[10px] text-zinc-500 block mb-1 font-bold">SELECT MONTH</label>
+                    <input
+                        type="month"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="bg-zinc-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-red-500 w-full"
+                    />
+                </div>
+
+                <div className="text-xs font-bold mb-2 text-zinc-400">Crime Categories</div>
+                <div className="space-y-1.5">
+                    {[
+                        { label: 'Violent Crime', color: '#7f1d1d' },
+                        { label: 'Anti-social', color: '#ec4899' },
+                        { label: 'Burglary', color: '#7c3aed' },
+                        { label: 'Vehicle Crime', color: '#0891b2' },
+                        { label: 'Drugs', color: '#059669' },
+                        { label: 'Robbery', color: '#9f1239' },
+                        { label: 'Damage/Arson', color: '#dc2626' },
+                        { label: 'Theft', color: '#6366f1' },
+                        { label: 'Other', color: '#52525b' }
+                    ].map((item) => (
+                        <div key={item.label} className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                            <span className="text-xs text-zinc-300 font-medium">{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-white/5">
+                    <div className="text-[10px] text-zinc-500 space-y-2 leading-relaxed italic">
+                        <p>• {searchMode === 'point' ? 'Click on map to fetch local data.' : 'Draw area by clicking, then Search.'}</p>
+                        <p>• Data provided by data.police.uk API.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+export default App
