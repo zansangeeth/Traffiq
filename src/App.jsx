@@ -5,7 +5,7 @@ import 'leaflet.heat'
 import axios from 'axios'
 import 'leaflet/dist/leaflet.css'
 import './index.css'
-import { Plus, Trash2, MousePointer2, Flame } from 'lucide-react'
+import { Plus, Trash2, MousePointer2, Flame, ChevronUp, ChevronDown, List } from 'lucide-react'
 
 function App() {
     const [crimeData, setCrimeData] = useState([])
@@ -17,6 +17,7 @@ function App() {
     const [isDrawing, setIsDrawing] = useState(false)
     const [showHeatmap, setShowHeatmap] = useState(false)
     const [currentZoom, setCurrentZoom] = useState(13)
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [date, setDate] = useState('2024-01')
 
     const fetchCrimeData = async (lat, lng, poly = null) => {
@@ -57,6 +58,7 @@ function App() {
         setIsDrawing(false)
         setMousePos(null)
         setShowHeatmap(false)
+        setIsDrawerOpen(false)
     }
 
     function HeatmapLayer({ points }) {
@@ -332,7 +334,7 @@ function App() {
             </MapContainer>
 
             {/* Legend */}
-            <div className="absolute bottom-6 left-6 z-[1000] glass p-4 rounded-2xl pointer-events-auto max-h-[400px] overflow-y-auto custom-scrollbar border border-white/10 shadow-2xl w-64">
+            <div className="absolute top-24 right-6 z-[1000] glass p-4 rounded-2xl pointer-events-auto max-h-[400px] overflow-y-auto custom-scrollbar border border-white/10 shadow-2xl w-64">
                 <div className="text-xs font-bold mb-3 text-zinc-400 uppercase tracking-widest">Dashboard</div>
 
                 <div className="mb-4">
@@ -373,6 +375,89 @@ function App() {
                     </div>
                 </div>
             </div>
+
+            {/* Data Drawer */}
+            {crimeData.length > 0 && (
+                <div
+                    className={`absolute bottom-0 left-1/2 -translate-x-1/2 z-[2000] w-full max-w-5xl transition-all duration-500 ease-in-out px-6 ${isDrawerOpen ? 'h-[60vh]' : 'h-12'}`}
+                >
+                    <div className="h-full glass rounded-t-3xl border-t border-x border-white/10 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden">
+                        {/* Drawer Toggle Handle */}
+                        <button
+                            onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+                            className="w-full h-12 flex items-center justify-between px-8 hover:bg-white/5 transition-colors group relative"
+                        >
+                            <div className="flex items-center gap-3">
+                                <List size={18} className="text-red-400" />
+                                <span className="text-xs font-black uppercase tracking-widest text-zinc-300">
+                                    Crime Data Explorer <span className="text-zinc-500 ml-2">({crimeData.length} records)</span>
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-zinc-500 font-bold group-hover:text-zinc-300 transition-colors uppercase tracking-widest">
+                                    {isDrawerOpen ? 'Collapse' : 'Expand View'}
+                                </span>
+                                {isDrawerOpen ? <ChevronDown size={20} className="text-zinc-400 group-hover:text-white" /> : <ChevronUp size={20} className="text-zinc-400 group-hover:text-white" />}
+                            </div>
+
+                            {/* Visual drag handle top border effect */}
+                            <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-white/10 group-hover:bg-red-500/50 transition-colors" />
+                        </button>
+
+                        {/* Drawer Content (Table) */}
+                        <div className="flex-1 overflow-hidden flex flex-col p-4 pt-0">
+                            <div className="flex-1 overflow-auto custom-scrollbar border border-white/5 rounded-xl bg-black/20">
+                                <table className="w-full text-left border-collapse min-w-[600px]">
+                                    <thead className="sticky top-0 z-10 glass border-b border-white/10">
+                                        <tr className="bg-zinc-900/50 text-[11px] font-black uppercase tracking-widest text-red-400/80">
+                                            <th className="px-6 py-4">Crime Category</th>
+                                            <th className="px-6 py-4">Location / Street</th>
+                                            <th className="px-6 py-4 text-center">Month</th>
+                                            <th className="px-6 py-4">Current Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {crimeData.map((crime, idx) => (
+                                            <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                                                <td className="px-6 py-3.5">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style={{ backgroundColor: getCrimeColor(crime.category) }}></div>
+                                                        <span className="text-sm font-bold text-zinc-200 capitalize tracking-tight group-hover:text-white transition-colors">
+                                                            {crime.category.replace(/-/g, ' ')}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-3.5">
+                                                    <div className="text-sm text-zinc-400 font-medium group-hover:text-zinc-300">
+                                                        {crime.location.street.name}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-3.5 text-center">
+                                                    <span className="text-xs font-black text-zinc-500 bg-zinc-800/50 px-2 py-1 rounded-md border border-white/5 whitespace-nowrap">
+                                                        {crime.month}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-3.5">
+                                                    {crime.outcome_status ? (
+                                                        <div className="text-[11px] font-bold text-zinc-400 leading-tight border-l-2 border-emerald-500/30 pl-3">
+                                                            {crime.outcome_status.category}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-[11px] font-medium text-zinc-600 italic">
+                                                            Pending investigation
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -5,6 +5,7 @@ A high-performance, interactive dashboard for visualizing street-level crime dat
 ## 🚀 Features
 
 - **Heatmap Visualization**: Toggle a high-density heatmap view using the Flame icon.
+- **Data Table Explorer**: Pull-up drawer at the bottom for detailed inspection of all crime records in a tabular format.
 - **Interactive Map**: A premium dark-themed map (CartoDB) for clear data visualization.
 - **Search by Point**: Click any location on the map to see crimes within a 1-mile radius for the selected month.
 - **Custom Area Search**: Draw a polygon on the map to fetch all crimes within a specific geographic boundary.
