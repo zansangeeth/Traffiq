@@ -1,9 +1,11 @@
-import { useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents, Polygon, Polyline } from 'react-leaflet'
+import { useState, useEffect } from 'react'
+import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents, Polygon, Polyline, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet.heat'
 import axios from 'axios'
 import 'leaflet/dist/leaflet.css'
 import './index.css'
-import { Plus, Trash2, MousePointer2 } from 'lucide-react'
+import { Plus, Trash2, MousePointer2, Flame } from 'lucide-react'
 
 function App() {
     const [crimeData, setCrimeData] = useState([])
@@ -13,6 +15,8 @@ function App() {
     const [selectedPoint, setSelectedPoint] = useState(null)
     const [mousePos, setMousePos] = useState(null)
     const [isDrawing, setIsDrawing] = useState(false)
+    const [showHeatmap, setShowHeatmap] = useState(false)
+    const [currentZoom, setCurrentZoom] = useState(13)
     const [date, setDate] = useState('2024-01')
 
     const fetchCrimeData = async (lat, lng, poly = null) => {
@@ -52,6 +56,39 @@ function App() {
         setSelectedPoint(null)
         setIsDrawing(false)
         setMousePos(null)
+        setShowHeatmap(false)
+    }
+
+    function HeatmapLayer({ points }) {
+        const map = useMap()
+
+        useEffect(() => {
+            if (!points || points.length === 0) return
+
+            const heatData = points.map(crime => [
+                parseFloat(crime.location.latitude),
+                parseFloat(crime.location.longitude),
+                0.5 // intensity
+            ])
+
+            const heatLayer = L.heatLayer(heatData, {
+                radius: 25,
+                blur: 15,
+                maxZoom: 17,
+                gradient: {
+                    0.4: 'rgba(0, 0, 255, 0.5)',
+                    0.6: 'rgba(0, 255, 0, 0.6)',
+                    0.8: 'rgba(255, 255, 0, 0.7)',
+                    1.0: 'rgba(255, 0, 0, 0.8)'
+                }
+            }).addTo(map)
+
+            return () => {
+                map.removeLayer(heatLayer)
+            }
+        }, [points, map])
+
+        return null
     }
 
     function MapEvents() {
@@ -83,6 +120,9 @@ function App() {
                 } else {
                     setMousePos(null)
                 }
+            },
+            zoomend(e) {
+                setCurrentZoom(e.target.getZoom())
             }
         })
         return null
@@ -154,6 +194,19 @@ function App() {
                         </button>
                     )}
 
+                    {crimeData.length > 0 && (
+                        <button
+                            onClick={() => {
+                                const newHeatMode = !showHeatmap
+                                setShowHeatmap(newHeatMode)
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all pointer-events-auto border shadow-2xl ${showHeatmap ? '!bg-red-500 text-white !border-red-400' : 'glass text-zinc-400 hover:text-white border-white/10'}`}
+                        >
+                            <Flame size={16} className={showHeatmap ? 'animate-pulse' : ''} />
+                            Heatmap
+                        </button>
+                    )}
+
                     {(selectedPoint || polyPoints.length > 0 || crimeData.length > 0) && (
                         <button
                             onClick={clearAll}
@@ -171,6 +224,16 @@ function App() {
                 </div>
             </header>
 
+            {/* Zoom Status Indicator for Heatmap */}
+            {showHeatmap && currentZoom > 16 && (
+                <div className="absolute top-24 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+                    <div className="glass px-4 py-2 rounded-full !border-red-500/30 !text-red-400 text-[10px] font-black uppercase tracking-tighter shadow-2xl flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full !bg-red-500 animate-pulse" />
+                        Detailed View: Showing Points
+                    </div>
+                </div>
+            )}
+
             {/* Map */}
             <MapContainer
                 center={[52.63, -1.13]}
@@ -179,6 +242,7 @@ function App() {
                 zoomControl={false}
                 doubleClickZoom={searchMode !== 'area'}
             >
+                <ZoomHandler showHeatmap={showHeatmap} />
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -205,35 +269,66 @@ function App() {
                     />
                 )}
 
-                {crimeData.map((crime, index) => (
-                    <CircleMarker
-                        key={`crime-${index}`}
-                        center={[parseFloat(crime.location.latitude), parseFloat(crime.location.longitude)]}
-                        radius={6}
-                        fillColor={getCrimeColor(crime.category)}
-                        color="#fff"
-                        weight={1}
-                        opacity={0.8}
-                        fillOpacity={0.6}
-                    >
-                        <Popup>
-                            <div className="text-sm max-w-[200px]">
-                                <div className="font-bold text-zinc-900 capitalize">
-                                    {crime.category.replace(/-/g, ' ')}
-                                </div>
-                                <div className="text-zinc-600 text-xs mt-1">
-                                    <div className="font-medium text-zinc-800">{crime.location.street.name}</div>
-                                    <div className="mt-1">Month: {crime.month}</div>
-                                    {crime.outcome_status && (
-                                        <div className="mt-1 p-1.5 bg-zinc-100 rounded border border-zinc-200 text-[10px]">
-                                            <span className="font-bold">Outcome:</span> {crime.outcome_status.category}
+                {showHeatmap ? (
+                    currentZoom > 16 ? (
+                        crimeData.map((crime, index) => (
+                            <CircleMarker
+                                key={`crime-${index}`}
+                                center={[parseFloat(crime.location.latitude), parseFloat(crime.location.longitude)]}
+                                radius={6}
+                                fillColor={getCrimeColor(crime.category)}
+                                color="#fff"
+                                weight={1}
+                                opacity={0.8}
+                                fillOpacity={0.6}
+                            >
+                                <Popup>
+                                    <div className="text-sm max-w-[200px]">
+                                        <div className="font-bold text-zinc-900 capitalize">
+                                            {crime.category.replace(/-/g, ' ')}
                                         </div>
-                                    )}
+                                        <div className="text-zinc-600 text-xs mt-1">
+                                            <div className="font-medium text-zinc-800">{crime.location.street.name}</div>
+                                            <div className="mt-1">Month: {crime.month}</div>
+                                        </div>
+                                    </div>
+                                </Popup>
+                            </CircleMarker>
+                        ))
+                    ) : (
+                        <HeatmapLayer points={crimeData} />
+                    )
+                ) : (
+                    crimeData.map((crime, index) => (
+                        <CircleMarker
+                            key={`crime-${index}`}
+                            center={[parseFloat(crime.location.latitude), parseFloat(crime.location.longitude)]}
+                            radius={6}
+                            fillColor={getCrimeColor(crime.category)}
+                            color="#fff"
+                            weight={1}
+                            opacity={0.8}
+                            fillOpacity={0.6}
+                        >
+                            <Popup>
+                                <div className="text-sm max-w-[200px]">
+                                    <div className="font-bold text-zinc-900 capitalize">
+                                        {crime.category.replace(/-/g, ' ')}
+                                    </div>
+                                    <div className="text-zinc-600 text-xs mt-1">
+                                        <div className="font-medium text-zinc-800">{crime.location.street.name}</div>
+                                        <div className="mt-1">Month: {crime.month}</div>
+                                        {crime.outcome_status && (
+                                            <div className="mt-1 p-1.5 bg-zinc-100 rounded border border-zinc-200 text-[10px]">
+                                                <span className="font-bold">Outcome:</span> {crime.outcome_status.category}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        </Popup>
-                    </CircleMarker>
-                ))}
+                            </Popup>
+                        </CircleMarker>
+                    ))
+                )}
             </MapContainer>
 
             {/* Legend */}
@@ -273,12 +368,28 @@ function App() {
                 <div className="mt-6 pt-4 border-t border-white/5">
                     <div className="text-[10px] text-zinc-500 space-y-2 leading-relaxed italic">
                         <p>• {searchMode === 'point' ? 'Click on map to fetch local data.' : 'Draw area by clicking, then Search.'}</p>
+                        <p>• Heatmap provides density overview. Zoom in for street-level details.</p>
                         <p>• Data provided by data.police.uk API.</p>
                     </div>
                 </div>
             </div>
         </div>
     )
+}
+
+function ZoomHandler({ showHeatmap }) {
+    const map = useMap()
+
+    useEffect(() => {
+        if (showHeatmap) {
+            const currentZoom = map.getZoom()
+            if (currentZoom > 14) {
+                map.setZoom(currentZoom - 2, { animate: true })
+            }
+        }
+    }, [showHeatmap, map])
+
+    return null
 }
 
 export default App
