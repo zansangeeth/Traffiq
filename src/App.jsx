@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents, Polygon } from 'react-leaflet'
+import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents, Polygon, Polyline } from 'react-leaflet'
 import axios from 'axios'
 import 'leaflet/dist/leaflet.css'
 import './index.css'
@@ -11,6 +11,8 @@ function App() {
     const [searchMode, setSearchMode] = useState('point') // 'point' | 'area'
     const [polyPoints, setPolyPoints] = useState([])
     const [selectedPoint, setSelectedPoint] = useState(null)
+    const [mousePos, setMousePos] = useState(null)
+    const [isDrawing, setIsDrawing] = useState(false)
     const [date, setDate] = useState('2024-01')
 
     const fetchCrimeData = async (lat, lng, poly = null) => {
@@ -27,7 +29,12 @@ function App() {
 
             const response = await axios.get(url)
             const data = response.data || []
-            console.log(`✅ Loaded ${data.length} crime records`)
+
+            // Helpful logs for cross-checking
+            const uniqueLocations = new Set(data.map(c => `${c.location.latitude},${c.location.longitude}`)).size
+            console.log(`📊 Data Summary: ${data.length} Total Crimes | ${uniqueLocations} Unique Locations (Markers)`)
+            console.log('📦 Raw Crime Data:', data)
+
             setCrimeData(data)
         } catch (error) {
             console.error('❌ Error fetching UK crime data:', error)
@@ -43,6 +50,8 @@ function App() {
         setCrimeData([])
         setPolyPoints([])
         setSelectedPoint(null)
+        setIsDrawing(false)
+        setMousePos(null)
     }
 
     function MapEvents() {
@@ -54,10 +63,27 @@ function App() {
                     setPolyPoints([])
                     fetchCrimeData(lat, lng)
                 } else if (searchMode === 'area') {
-                    setPolyPoints(prev => [...prev, [lat, lng]])
-                    setSelectedPoint(null)
+                    if (polyPoints.length === 0) setIsDrawing(true)
+
+                    if (isDrawing || polyPoints.length === 0) {
+                        setPolyPoints(prev => [...prev, [lat, lng]])
+                        setSelectedPoint(null)
+                    }
                 }
             },
+            dblclick(e) {
+                if (searchMode === 'area' && polyPoints.length >= 2) {
+                    setIsDrawing(false)
+                    setMousePos(null)
+                }
+            },
+            mousemove(e) {
+                if (searchMode === 'area' && isDrawing && polyPoints.length > 0) {
+                    setMousePos([e.latlng.lat, e.latlng.lng])
+                } else {
+                    setMousePos(null)
+                }
+            }
         })
         return null
     }
@@ -119,7 +145,7 @@ function App() {
                         </button>
                     </div>
 
-                    {searchMode === 'area' && polyPoints.length >= 3 && (
+                    {searchMode === 'area' && polyPoints.length >= 3 && !isDrawing && (
                         <button
                             onClick={() => fetchCrimeData(null, null, polyPoints)}
                             className="glass px-4 py-2 rounded-xl pointer-events-auto bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 text-sm font-bold shadow-2xl transition-all hover:bg-emerald-600 hover:text-white"
@@ -151,6 +177,7 @@ function App() {
                 zoom={13}
                 className="h-full w-full"
                 zoomControl={false}
+                doubleClickZoom={searchMode !== 'area'}
             >
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -168,6 +195,13 @@ function App() {
                     <Polygon
                         positions={polyPoints}
                         pathOptions={{ color: '#ef4444', weight: 2, fillOpacity: 0.2, dashArray: '5, 10' }}
+                    />
+                )}
+
+                {searchMode === 'area' && isDrawing && polyPoints.length > 0 && mousePos && (
+                    <Polyline
+                        positions={[polyPoints[polyPoints.length - 1], mousePos]}
+                        pathOptions={{ color: '#ef4444', weight: 2, dashArray: '5, 5', opacity: 0.6 }}
                     />
                 )}
 
