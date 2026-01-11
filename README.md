@@ -19,6 +19,10 @@ A high-performance, interactive dashboard for visualizing street-level crime dat
 
 <img width="1510" height="858" alt="Screenshot 2026-01-11 at 1 13 49 PM" src="https://github.com/user-attachments/assets/347ce9ba-397b-455d-a0cc-4feedd5269a7" />
 
+### Data Table View
+
+<img width="1510" height="843" alt="Screenshot 2026-01-11 at 1 37 25 PM" src="https://github.com/user-attachments/assets/81ffe9a7-ee53-4b29-ab59-efe960a7c8f3" />
+
 
 ### Detailed Walkthrough
 
