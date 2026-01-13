@@ -14,6 +14,10 @@ A high-performance, interactive dashboard for visualizing street-level crime dat
 - **Smart Zoom**: Automatically adjusts zoom levels when toggling visualization modes.
 - **Outcome Status**: View the police outcome for specific crime incidents where available.
 
+## 📸 Diagram walkthrough
+
+<img width="1034" height="244" alt="image" src="https://github.com/user-attachments/assets/a985076e-6056-4e46-b2a6-6177c4457743" />
+
 ## 📸 Screenshots & Walkthrough
 ### Heatmap View
 
