@@ -5,7 +5,7 @@ import 'leaflet.heat'
 import axios from 'axios'
 import 'leaflet/dist/leaflet.css'
 import './index.css'
-import { Plus, Trash2, MousePointer2, Flame, ChevronUp, ChevronDown, List } from 'lucide-react'
+import { Plus, Trash2, MousePointer2, Flame, ChevronUp, ChevronDown, List, Sun, Moon } from 'lucide-react'
 
 function App() {
     const [crimeData, setCrimeData] = useState([])
@@ -19,6 +19,7 @@ function App() {
     const [currentZoom, setCurrentZoom] = useState(13)
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [date, setDate] = useState('2024-01')
+    const [mapTheme, setMapTheme] = useState('dark') // 'dark' | 'light'
 
     const fetchCrimeData = async (lat, lng, poly = null) => {
         try {
@@ -209,6 +210,28 @@ function App() {
                         </button>
                     )}
 
+                    <div className="w-[1px] h-8 bg-white/10 mx-1" />
+
+                    {/* Theme Toggle */}
+                    <div className="glass flex p-1 rounded-xl pointer-events-auto shadow-2xl border border-white/10">
+                        <button
+                            onClick={() => setMapTheme('light')}
+                            className={`p-2 rounded-lg transition-all ${mapTheme === 'light' ? 'bg-amber-500 text-white shadow-lg' : 'text-zinc-400 hover:text-white'}`}
+                            title="Light Mode"
+                        >
+                            <Sun size={18} />
+                        </button>
+                        <button
+                            onClick={() => setMapTheme('dark')}
+                            className={`p-2 rounded-lg transition-all ${mapTheme === 'dark' ? 'bg-indigo-600 text-white shadow-lg' : 'text-zinc-400 hover:text-white'}`}
+                            title="Dark Mode"
+                        >
+                            <Moon size={18} />
+                        </button>
+                    </div>
+
+                    <div className="w-[1px] h-8 bg-white/10 mx-1" />
+
                     {(selectedPoint || polyPoints.length > 0 || crimeData.length > 0) && (
                         <button
                             onClick={clearAll}
@@ -247,7 +270,7 @@ function App() {
                 <ZoomHandler showHeatmap={showHeatmap} />
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    url={`https://{s}.basemaps.cartocdn.com/${mapTheme}_all/{z}/{x}/{y}{r}.png`}
                 />
                 <MapEvents />
 
